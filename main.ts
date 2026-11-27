@@ -1,12 +1,13 @@
-// Token Radar, radar-2: reads the sealed snapshot, scores every pre-token protocol, writes the
-// ranked board, the dashboard's data, and the dossier the judge reads.
+// Token Radar, radar-3: reads the sealed snapshot, scores every pre-token protocol with
+// the fitted model, writes the ranked board, the dashboard's data, and the dossier the
+// judge reads.
 //
 //   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts --input token-radar-01-kit/input/snapshot.json
 //
-// The program reads /input/snapshot.json (or --input <file|dir>), scores with lib/model.ts, writes
-// /output/board.json and /output/data.js, copies this repository's dashboard/ and screenshots/ to
-// /output, and writes /output/dossier.json with the vendored make.fun library. Outside the grader's
-// container, MAKEFUN_OUTPUT_DIR stands in for /output.
+// The program reads /input/snapshot.json (or --input <file|dir>), scores with lib/model.ts,
+// writes /output/board.json and /output/data.js, copies this repository's dashboard/ and
+// screenshots/ to /output, and writes /output/dossier.json with the vendored make.fun
+// library. Outside the grader's container, MAKEFUN_OUTPUT_DIR stands in for /output.
 
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -81,7 +82,7 @@ for (const name of shots) {
 writeFileSync(join(out, 'dossier.json'), buildDossier(out, { text_max_bytes: TEXT_MAX_BYTES, screenshots: SCREENSHOT_CAPS, dashboard: { max_files: 400, max_bytes: 4_194_304 } }));
 
 process.stdout.write(
-  `token radar: ${snapshot.protocols.length} protocols, ${snapshot.watchlist.length} on the watchlist, ${board.length} rows scored (${radar.early_size} early, ${radar.live_size} live set aside)\n` +
-    `token radar: top implied value $${board[0]!.implied_value_usd} (${board[0]!.name}), market multiple ${radar.market_multiple_median} from ${radar.market_multiple_n} live protocols\n` +
+  `token radar: ${snapshot.protocols.length} protocols, ${snapshot.watchlist.length} on the watchlist, ${board.length} rows scored (${radar.farm_count} FARM, ${radar.watch_count} WATCH)\n` +
+    `token radar: top implied value $${board[0]!.implied_value_usd} (${board[0]!.name}), fitted on ${radar.validation.live_fitted_n} live protocols, held-out median error ${(radar.validation.split_half_ape_loglog * 100).toFixed(0)}%\n` +
     `token radar: wrote ${join(out, 'board.json')}, ${join(out, 'data.js')}, ${join(out, 'dashboard')}, ${join(out, 'screenshots')} (${shots.length} images) and ${join(out, 'dossier.json')}\n`,
 );

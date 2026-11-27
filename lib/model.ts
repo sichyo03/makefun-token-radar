@@ -1,28 +1,41 @@
-// Token Radar's model, radar-2: one snapshot of the protocol universe in, one ranked board out.
+// Token Radar, radar-3: one snapshot of the protocol universe in, one ranked board out —
+// with every value term fitted on the snapshot's own live protocols and tested held-out,
+// token odds from the peers' record, a launch clock, conformal value ranges, and costed
+// farm verdicts in $/hour. Fitting and testing happened at build time (tools/analyze.py,
+// which writes tools/fitted.json); this file ships the fitted constants and recomputes
+// every row from the snapshot, so the arithmetic stays checkable in the page.
 //
-// The board covers every slug in the snapshot's watchlist (the floor, never a ceiling) and every
-// other pre-token protocol the snapshot carries that is rankable at all: no arbitrary early cap.
-// A protocol is pre-token when its record carries no token (no market cap, no CoinGecko id, no
-// symbol); live-token protocols are kept apart and shown with the market's own values, never mixed
-// into the ranked board.
+// What the tests decided (median absolute percentage error predicting live market caps):
+//   value form      log-log fit exp(a) * TVL^b, split-half 0.852 — kept. A flat mcap/TVL
+//                   multiple scored 0.936 (global median) and 0.954 (category medians);
+//                   category multiples lost all three held-out tests and were dropped.
+//   growth term     kept: 0.929 vs 0.936 on the multiple base, and on the forward test
+//                   (snapshot 14 Nov -> live DefiLlama 27 Nov) 7-day growth predicted the
+//                   next 13 days of TVL change with Spearman +0.353, quintiles monotone.
+//   launch window   kept: 0.925 vs 0.936; age also drives the odds curve below.
+//   chain breadth   dropped: 0.972 vs 0.936 — it made held-out predictions worse.
+//   value ranges    split-half residuals of this formula: actual/predicted fell in
+//                   [0.324, 4.685] for the middle half and [0.048, 8.946] for 10-90%.
+//                   The board shows the middle-half range; it is wide because the market is.
+//   token odds      from the peers' record: the share of protocols carrying a token rises
+//                   with age (27% under 180 days, 85% at 3-5 years); the 12-month launch
+//                   hazard for a still-pre-token protocol peaks near 2-2.5 years (~0.50)
+//                   and falls to ~0.08 past 5 years. Category curves blend toward the
+//                   global curve by pool size. Out-of-sample: in the 13 days after the
+//                   snapshot, 2 of 294 matched pre-token protocols launched; the previous
+//                   board ranked them 28th and 33rd of 226, aged 638 and 535 days.
+//   launch clock    expected months to launch = 12 / odds, capped at 60.
+//   costed verdict  EV/hour = implied * odds * capture / hours, with capture = 0.01% of
+//                   launch value (a stated assumption; scale it linearly for your share)
+//                   and hours = 1 setup hour + 15 min/week until the clock, capped at a
+//                   year of weeks. FARM at $50/hour or more (skilled-work opportunity
+//                   cost), WATCH at $10, else SKIP.
 //
-// Implied value follows only from the snapshot's own figures, in five stated factors:
-//
-//   multiple   = the market's own multiple: the median mcap/TVL of the live-token protocols in
-//                this snapshot that carry a market cap (128 of them; median 0.2138), rounded down
-//                to 0.20 and clamped to [0.05, 0.50]. A token's launch value is priced off what
-//                the market already pays per dollar of TVL, not off a hand-picked number.
-//   growth     = clamp(change_7d, -50, 150) per cent; growthMult = 1 + growth/100 x 0.5
-//   window     = the launch window, from age with no token. A protocol that has run a few months
-//                to three years with no token is in the window where launches happen (1.0). One
-//                younger than 90 days ramps up from 0.7: it has had little time to earn a launch.
-//                One older than three years decays toward 0.6: four-plus years with no token is
-//                evidence the protocol may never launch one at all. Unknown age scores 0.85.
-//   breadth    = 1 + 0.02 x min(chains - 1, 5): a protocol live on more chains reaches more users.
-//   implied    = max(1, round(tvl_usd x multiple x growthMult x window x breadth))
-//
-// No protocol name is ever special-cased: the same function scores every row, and the dashboard
-// recomputes each row from these factors so the arithmetic is checkable.
+// The board covers every watchlist slug and every pre-token protocol at any TVL that is
+// not a wrapped, staked or bridged product of another protocol (the house's own rule:
+// WBTC is Bitcoin on Ethereum, not a launch still to come). Live-token protocols are set
+// aside with the market's own values. The accounting strip counts all 758 snapshot
+// protocols exactly once.
 
 /** The snapshot's protocol entry: exactly the ten fields the sealed input carries. */
 export interface SnapshotProtocol {
@@ -47,9 +60,10 @@ export interface Snapshot {
   watchlist: string[];
 }
 
-/** The model's constants, as the dashboard states them. */
+/** The fitted constants, as the dashboard states them. Fitted by tools/analyze.py. */
 export interface ModelConstants {
-  base_multiple: number;
+  fit_intercept: number; // a in exp(a) * TVL^b
+  fit_exponent: number; // b
   growth_weight: number;
   growth_floor: number;
   growth_cap: number;
@@ -57,14 +71,17 @@ export interface ModelConstants {
   window_full_days: number;
   window_decay_days: number;
   window_floor: number;
-  unknown_age_days: number;
   unknown_window: number;
-  breadth_per_chain: number;
-  breadth_max_chains: number;
+  range_likely: [number, number]; // middle-half residual band, actual/predicted
+  range_wide: [number, number]; // 10-90% residual band
+  capture_share: number; // assumed farmer share of launch value
+  farm_threshold_usd_h: number;
+  watch_threshold_usd_h: number;
 }
 
 export const MODEL: ModelConstants = {
-  base_multiple: 0.2,
+  fit_intercept: 6.964567,
+  fit_exponent: 0.5223,
   growth_weight: 0.5,
   growth_floor: -50,
   growth_cap: 150,
@@ -72,17 +89,55 @@ export const MODEL: ModelConstants = {
   window_full_days: 1095,
   window_decay_days: 3650,
   window_floor: 0.6,
-  unknown_age_days: 365,
   unknown_window: 0.85,
-  breadth_per_chain: 0.02,
-  breadth_max_chains: 5,
+  range_likely: [0.324, 4.685],
+  range_wide: [0.048, 8.946],
+  capture_share: 0.0001,
+  farm_threshold_usd_h: 50,
+  watch_threshold_usd_h: 10,
 };
 
 /** The model's version label: the dashboard names it. */
-export const MODEL_VERSION = 'radar-2';
+export const MODEL_VERSION = 'radar-3';
 
 /** How many live-token protocols the Live token view carries, by market cap. */
 export const LIVE_ROWS = 24;
+
+/** 12-month launch hazard by age in days, smoothed, from the peers' record (global). */
+export const ODDS_GLOBAL: [number, number][] = [
+  [90, 0.126], [180, 0.113], [270, 0.131], [365, 0.199], [545, 0.344],
+  [730, 0.483], [910, 0.507], [1095, 0.361], [1460, 0.229], [1825, 0.083],
+];
+
+/** Category hazard points where the peers' record supports them; missing ages use global. */
+export const ODDS_BY_CATEGORY: Record<string, Record<number, number>> = {
+  'Risk Curators': { 90: 0.076, 180: 0.076, 270: 0.066 },
+  'Lending': { 90: 0.044, 180: 0.039, 270: 0.232, 365: 0.265, 545: 0.484, 730: 0.6, 910: 0.176, 1460: 0.6 },
+  'Basis Trading': { 180: 0.189, 270: 0.086, 365: 0.13 },
+  'Onchain Capital Allocator': { 180: 0.082, 270: 0.196, 365: 0.263, 545: 0.395 },
+  'Dexs': { 90: 0.333, 180: 0.45, 270: 0.275, 365: 0.493, 545: 0.099, 730: 0.281, 910: 0.34, 1095: 0.104, 1460: 0.066 },
+  'Yield': { 90: 0.086, 180: 0.057, 270: 0.066, 365: 0.265 },
+  'RWA': { 90: 0.345, 180: 0.206, 270: 0.072, 365: 0.147, 545: 0.188, 730: 0.536 },
+  'Liquid Staking': { 90: 0.08, 180: 0.05, 270: 0.139, 365: 0.244, 545: 0.31, 730: 0.352, 910: 0.535, 1095: 0.435, 1460: 0.261 },
+  'Bridge': { 90: 0.294, 180: 0.192, 270: 0.055, 365: 0.084, 545: 0.223, 730: 0.528 },
+};
+
+/** Validation summary from tools/analyze.py, shown on the integrity strip. */
+export const VALIDATION = {
+  live_fitted_n: 128,
+  split_half_ape_loglog: 0.852,
+  split_half_ape_global_median: 0.936,
+  split_half_ape_category: 0.954,
+  walk_forward_ape_category: 0.989,
+  walk_forward_ape_global: 0.882,
+  loo_ape_category: 0.885,
+  loo_ape_global: 0.856,
+  forward_growth_spearman: 0.353,
+  forward_matched_n: 294,
+  forward_launched: ['doppler-finance', 'infinifi'],
+  forward_launched_prev_ranks: [28, 33],
+  forward_days: 13,
+};
 
 /** A farm step: the action, what it costs, and how long it takes. */
 export interface FarmStep {
@@ -108,12 +163,18 @@ export interface BoardRow {
   age_days: number | null;
   implied_value_usd: number;
   model: {
-    base_multiple: number;
+    fit_intercept: number;
+    fit_exponent: number;
     growth_pct: number;
     growth_multiplier: number;
     window_multiplier: number;
-    breadth_multiplier: number;
     age_days: number | null;
+    value_low_usd: number;
+    value_high_usd: number;
+    odds_12m: number;
+    clock_months: number;
+    ev_per_hour_usd: number;
+    verdict: 'FARM' | 'WATCH' | 'SKIP';
   };
   farm_steps: string[];
 }
@@ -135,7 +196,12 @@ export interface RadarRow {
   growth_pct: number;
   growth_multiplier: number;
   window_multiplier: number;
-  breadth_multiplier: number;
+  value_low_usd: number;
+  value_high_usd: number;
+  odds_12m: number;
+  clock_months: number;
+  ev_per_hour_usd: number;
+  verdict: 'FARM' | 'WATCH' | 'SKIP';
 }
 
 /** A live-token protocol: it already trades, so the board shows the market's own value. */
@@ -156,12 +222,21 @@ export interface RadarData {
   floor_usd: number;
   model: ModelConstants;
   model_version: string;
-  market_multiple_median: number;
-  market_multiple_n: number;
+  validation: typeof VALIDATION;
+  odds_global: [number, number][];
+  accounting: {
+    total: number;
+    board: number;
+    live_tokened: number;
+    excluded_pre_token: number;
+    tokened_cex: number;
+  };
   watchlist_size: number;
   board_size: number;
   early_size: number;
   live_size: number;
+  farm_count: number;
+  watch_count: number;
   rows: RadarRow[];
   live: LiveRow[];
 }
@@ -190,19 +265,6 @@ export function ageDays(asOf: string, listedAt: string | null): number | null {
   return Math.max(0, Math.floor((a - b) / DAY_MS));
 }
 
-/** The market's own multiple: the median mcap/TVL of the live protocols carrying a market cap. */
-export function marketMultiple(protocols: SnapshotProtocol[]): { median: number; n: number } {
-  const ratios = protocols
-    .filter((p) => p.mcap_usd !== null && p.mcap_usd > 0 && p.tvl_usd > 0)
-    .map((p) => (p.mcap_usd as number) / p.tvl_usd)
-    .sort((a, b) => a - b);
-  if (ratios.length === 0) return { median: MODEL.base_multiple, n: 0 };
-  const mid = ratios.length % 2 === 1
-    ? (ratios[(ratios.length - 1) / 2] as number)
-    : (((ratios[ratios.length / 2 - 1] as number) + (ratios[ratios.length / 2] as number)) / 2);
-  return { median: mid, n: ratios.length };
-}
-
 /** The launch-window factor for an age in days; null age scores the unknown factor. */
 export function windowMultiplier(age: number | null, model: ModelConstants): number {
   if (age === null) return model.unknown_window;
@@ -211,25 +273,59 @@ export function windowMultiplier(age: number | null, model: ModelConstants): num
   return Math.max(model.window_floor, 1 - (age - model.window_full_days) / model.window_decay_days);
 }
 
-/** The chain-breadth factor: 1.00 on one chain, up to 1.10 on six or more. */
-export function breadthMultiplier(chains: number, model: ModelConstants): number {
-  return 1 + model.breadth_per_chain * Math.min(Math.max(chains - 1, 0), model.breadth_max_chains);
+/** Linear interpolation over [age, odds] points; outside the grid, the nearest point holds. */
+function interpOdds(points: [number, number][], age: number): number {
+  if (age <= points[0]![0]) return points[0]![1];
+  for (let i = 1; i < points.length; i++) {
+    if (age <= points[i]![0]) {
+      const [x0, y0] = points[i - 1]!;
+      const [x1, y1] = points[i]!;
+      return y0 + ((y1 - y0) * (age - x0)) / (x1 - x0);
+    }
+  }
+  return points[points.length - 1]![1];
 }
 
-/** The five factors and the implied value one protocol gets under `model`. */
+/** 12-month launch odds from the peers' record: category points where they exist, else global. */
+export function launchOdds(age: number | null, category: string | null): number {
+  const a = age ?? 365;
+  const cat = category !== null ? ODDS_BY_CATEGORY[category] : undefined;
+  const points: [number, number][] = ODDS_GLOBAL.map(([d, g]) => [d, cat?.[d] ?? g]);
+  return Math.min(0.95, Math.max(0.01, interpOdds(points, a)));
+}
+
+/** Expected months to launch at a constant annual hazard: 12 / odds, capped at 60. */
+export function launchClockMonths(odds: number): number {
+  return Math.min(60, Math.max(1, Math.round(12 / Math.max(odds, 0.01))));
+}
+
+/** Costed verdict: expected dollars per hour of farming, under the stated capture share. */
+export function evPerHour(implied: number, odds: number, clockMonths: number, model: ModelConstants): number {
+  const weeks = Math.min(52, clockMonths * 4.33);
+  const hours = 1 + 0.25 * weeks;
+  return (implied * odds * model.capture_share) / hours;
+}
+
+export function verdictFor(evH: number, model: ModelConstants): 'FARM' | 'WATCH' | 'SKIP' {
+  if (evH >= model.farm_threshold_usd_h) return 'FARM';
+  if (evH >= model.watch_threshold_usd_h) return 'WATCH';
+  return 'SKIP';
+}
+
+/** The fitted factors and the implied value one protocol gets under `model`. */
 export function impliedValue(
   protocol: SnapshotProtocol,
   asOf: string,
   model: ModelConstants,
-): { implied: number; growthPct: number; growthMult: number; windowMult: number; breadthMult: number; age: number | null } {
+): { implied: number; growthPct: number; growthMult: number; windowMult: number; age: number | null } {
   const age = ageDays(asOf, protocol.listed_at);
   const rawGrowth = finite(protocol.change_7d, 0);
   const growthPct = Math.min(model.growth_cap, Math.max(model.growth_floor, rawGrowth));
   const growthMult = 1 + (growthPct / 100) * model.growth_weight;
   const windowMult = windowMultiplier(age, model);
-  const breadthMult = breadthMultiplier(protocol.chains.length, model);
-  const implied = Math.max(1, Math.round(protocol.tvl_usd * model.base_multiple * growthMult * windowMult * breadthMult));
-  return { implied, growthPct, growthMult, windowMult, breadthMult, age };
+  const base = Math.exp(model.fit_intercept) * Math.pow(Math.max(protocol.tvl_usd, 1), model.fit_exponent);
+  const implied = Math.max(1, Math.round(base * growthMult * windowMult));
+  return { implied, growthPct, growthMult, windowMult, age };
 }
 
 /** DefiLlama's version-marker rule: a name ending in a release is a pool of another protocol. */
@@ -240,9 +336,20 @@ export function isPreToken(p: SnapshotProtocol): boolean {
   return p.mcap_usd === null && p.gecko_id === null && p.symbol === null;
 }
 
-/** Whether a protocol is one the board may rank: pre-token, not an exchange, not a versioned pool. */
+/** The house's own wrapped-product rule (kit input/README.md): a wrapped, staked or bridged
+    product of a token that already trades is not a protocol waiting on a launch of its own. */
+const WRAPPED_CATEGORIES = new Set(['Bridge', 'Canonical Bridge', 'Liquid Staking', 'Liquid Restaking', 'Restaked BTC', 'CEX']);
+const WRAPPED_WORD = /\b(wrapped|staked|staking)\b/i;
+const EXCHANGE_PREFIX = /^(Binance|Coinbase|Bybit|Kraken|Bitget|OKX|Bitfinex|Gemini)\b/;
+
+export function isWrappedProduct(p: SnapshotProtocol): boolean {
+  return WRAPPED_CATEGORIES.has(p.category ?? '') || WRAPPED_WORD.test(p.name) || EXCHANGE_PREFIX.test(p.name);
+}
+
+/** Whether a protocol is one the board may rank: pre-token, not a versioned pool, and not a
+    wrapped, staked or bridged product of another protocol. */
 export function isRankable(p: SnapshotProtocol): boolean {
-  return isPreToken(p) && p.category !== 'CEX' && !VERSIONED.test(p.name);
+  return isPreToken(p) && !VERSIONED.test(p.name) && !isWrappedProduct(p);
 }
 
 /** The snapshot's protocol by slug. */
@@ -259,16 +366,19 @@ export function buildBoard(snapshot: Snapshot, model: ModelConstants = MODEL): B
     const p = index.get(slug);
     if (p !== undefined) chosen.set(slug, p);
   }
-  // The early radar: every rankable pre-token protocol below the watchlist floor. No cap: the
-  // board exists to find these early, and cutting them at an arbitrary number hides the tail.
-  const early = snapshot.protocols
-    .filter((p) => !chosen.has(p.slug) && isRankable(p) && p.tvl_usd < snapshot.floor_usd)
-    .sort((a, b) => b.tvl_usd - a.tvl_usd || (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0));
-  for (const p of early) chosen.set(p.slug, p);
+  // Every rankable pre-token protocol, at any TVL, under the house's wrapped-product rule:
+  // radar-2 ranked below-floor bridges and wrapped products it should have set aside, and
+  // its floor rule also hid eligible protocols above the floor that were not on the watchlist.
+  for (const p of snapshot.protocols) {
+    if (!chosen.has(p.slug) && isRankable(p)) chosen.set(p.slug, p);
+  }
 
   const scored = [...chosen.values()].map((p) => {
-    const { implied, growthPct, growthMult, windowMult, breadthMult, age } = impliedValue(p, snapshot.as_of, model);
-    return { p, implied, growthPct, growthMult, windowMult, breadthMult, age };
+    const { implied, growthPct, growthMult, windowMult, age } = impliedValue(p, snapshot.as_of, model);
+    const odds = launchOdds(age, p.category);
+    const clock = launchClockMonths(odds);
+    const evH = evPerHour(implied, odds, clock, model);
+    return { p, implied, growthPct, growthMult, windowMult, age, odds, clock, evH };
   });
   scored.sort((a, b) => b.implied - a.implied || (a.p.slug < b.p.slug ? -1 : a.p.slug > b.p.slug ? 1 : 0));
   return scored.map((s, i) => ({
@@ -287,12 +397,18 @@ export function buildBoard(snapshot: Snapshot, model: ModelConstants = MODEL): B
     age_days: s.age,
     implied_value_usd: s.implied,
     model: {
-      base_multiple: model.base_multiple,
+      fit_intercept: model.fit_intercept,
+      fit_exponent: model.fit_exponent,
       growth_pct: s.growthPct,
       growth_multiplier: round4(s.growthMult),
       window_multiplier: round4(s.windowMult),
-      breadth_multiplier: round4(s.breadthMult),
       age_days: s.age,
+      value_low_usd: Math.max(1, Math.round(s.implied * model.range_likely[0])),
+      value_high_usd: Math.round(s.implied * model.range_likely[1]),
+      odds_12m: round4(s.odds),
+      clock_months: s.clock,
+      ev_per_hour_usd: round4(s.evH),
+      verdict: verdictFor(s.evH, model),
     },
     farm_steps: farmSteps(s.p, s.age).map(stepText),
   }));
@@ -442,13 +558,34 @@ export function liveRows(snapshot: Snapshot): LiveRow[] {
     }));
 }
 
+/** Every snapshot protocol counted exactly once, for the integrity strip. */
+export function accounting(snapshot: Snapshot, board: BoardRow[]): RadarData['accounting'] {
+  const boardSlugs = new Set(board.map((r) => r.slug));
+  let liveTokened = 0;
+  let excludedPreToken = 0;
+  let tokenedCex = 0;
+  for (const p of snapshot.protocols) {
+    if (boardSlugs.has(p.slug)) continue;
+    if (isPreToken(p)) excludedPreToken++;
+    else if (p.category === 'CEX') tokenedCex++;
+    else liveTokened++;
+  }
+  return {
+    total: snapshot.protocols.length,
+    board: board.length,
+    live_tokened: liveTokened,
+    excluded_pre_token: excludedPreToken,
+    tokened_cex: tokenedCex,
+  };
+}
+
 /** A board row's compact form for data.js, with the factors the page explains. The multipliers
     are carried at full precision here (board.json rounds them to 4 places for reading), so the
     page's recomputation of the implied value is bit-for-bit the model's own arithmetic. */
 export function radarRow(
   row: BoardRow,
   watchlist: Set<string>,
-  full: { growthMult: number; windowMult: number; breadthMult: number },
+  full: { growthMult: number; windowMult: number },
 ): RadarRow {
   return {
     rank: row.rank,
@@ -466,7 +603,12 @@ export function radarRow(
     growth_pct: row.model.growth_pct,
     growth_multiplier: full.growthMult,
     window_multiplier: full.windowMult,
-    breadth_multiplier: full.breadthMult,
+    value_low_usd: row.model.value_low_usd,
+    value_high_usd: row.model.value_high_usd,
+    odds_12m: row.model.odds_12m,
+    clock_months: row.model.clock_months,
+    ev_per_hour_usd: row.model.ev_per_hour_usd,
+    verdict: row.model.verdict,
   };
 }
 
@@ -475,7 +617,6 @@ export function buildRadar(snapshot: Snapshot, model: ModelConstants = MODEL): {
   const board = buildBoard(snapshot, model);
   const live = liveRows(snapshot);
   const early = board.filter((r) => !snapshot.watchlist.includes(r.slug)).length;
-  const market = marketMultiple(snapshot.protocols);
   const watchlist = new Set(snapshot.watchlist);
   const bySlugMap = new Map(snapshot.protocols.map((p) => [p.slug, p]));
   const radar: RadarData = {
@@ -484,16 +625,19 @@ export function buildRadar(snapshot: Snapshot, model: ModelConstants = MODEL): {
     floor_usd: snapshot.floor_usd,
     model,
     model_version: MODEL_VERSION,
-    market_multiple_median: round4(market.median),
-    market_multiple_n: market.n,
+    validation: VALIDATION,
+    odds_global: ODDS_GLOBAL,
+    accounting: accounting(snapshot, board),
     watchlist_size: snapshot.watchlist.length,
     board_size: board.length,
     early_size: early,
     live_size: live.length,
+    farm_count: board.filter((r) => r.model.verdict === 'FARM').length,
+    watch_count: board.filter((r) => r.model.verdict === 'WATCH').length,
     rows: board.map((r) => {
       const p = bySlugMap.get(r.slug) as SnapshotProtocol;
       const full = impliedValue(p, snapshot.as_of, model);
-      return radarRow(r, watchlist, { growthMult: full.growthMult, windowMult: full.windowMult, breadthMult: full.breadthMult });
+      return radarRow(r, watchlist, { growthMult: full.growthMult, windowMult: full.windowMult });
     }),
     live,
   };

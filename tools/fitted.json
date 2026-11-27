@@ -1,0 +1,393 @@
+{
+ "fitted_on": "2026-11-14",
+ "source": "DefiLlama https://api.llama.fi/protocols, fetched 2026-11-14T01:18:33.201Z",
+ "global_multiple": 0.2138,
+ "live_n": 128,
+ "category_multiples": {
+  "Lending": {
+   "n": 15,
+   "median": 0.1324,
+   "shrunk": 0.1527
+  },
+  "Cross Chain Bridge": {
+   "n": 4,
+   "median": 1.2205,
+   "shrunk": 0.6612
+  },
+  "Liquidity Manager": {
+   "n": 1,
+   "median": 0.015,
+   "shrunk": 0.1807
+  },
+  "Liquid Staking": {
+   "n": 9,
+   "median": 0.0406,
+   "shrunk": 0.1025
+  },
+  "Collateral Management": {
+   "n": 1,
+   "median": 12.1602,
+   "shrunk": 2.2049
+  },
+  "Risk Curators": {
+   "n": 1,
+   "median": 2.9747,
+   "shrunk": 0.674
+  },
+  "Dexs": {
+   "n": 11,
+   "median": 0.3424,
+   "shrunk": 0.3022
+  },
+  "Chain": {
+   "n": 1,
+   "median": 3.0264,
+   "shrunk": 0.6826
+  },
+  "Yield": {
+   "n": 9,
+   "median": 0.1914,
+   "shrunk": 0.1994
+  },
+  "Canonical Bridge": {
+   "n": 8,
+   "median": 0.7464,
+   "shrunk": 0.5416
+  },
+  "Restaking": {
+   "n": 2,
+   "median": 0.0246,
+   "shrunk": 0.1598
+  },
+  "CEX": {
+   "n": 9,
+   "median": 0.0748,
+   "shrunk": 0.1245
+  },
+  "Yield Aggregator": {
+   "n": 4,
+   "median": 0.151,
+   "shrunk": 0.1859
+  },
+  "Basis Trading": {
+   "n": 7,
+   "median": 0.6544,
+   "shrunk": 0.4708
+  },
+  "NFT Marketplace": {
+   "n": 1,
+   "median": 2.0017,
+   "shrunk": 0.5118
+  },
+  "RWA": {
+   "n": 9,
+   "median": 0.2748,
+   "shrunk": 0.253
+  },
+  "Bridge": {
+   "n": 6,
+   "median": 0.5567,
+   "shrunk": 0.4009
+  },
+  "Decentralized AI": {
+   "n": 1,
+   "median": 2.0604,
+   "shrunk": 0.5216
+  },
+  "Onchain Capital Allocator": {
+   "n": 2,
+   "median": 0.0125,
+   "shrunk": 0.1563
+  },
+  "Indexes": {
+   "n": 3,
+   "median": 0.1477,
+   "shrunk": 0.189
+  },
+  "Token Locker": {
+   "n": 2,
+   "median": 9.5204,
+   "shrunk": 2.8728
+  },
+  "CDP": {
+   "n": 3,
+   "median": 0.1687,
+   "shrunk": 0.1969
+  },
+  "Dual-Token Stablecoin": {
+   "n": 1,
+   "median": 0.0316,
+   "shrunk": 0.1834
+  },
+  "Derivatives": {
+   "n": 2,
+   "median": 2.1619,
+   "shrunk": 0.7704
+  },
+  "Options": {
+   "n": 1,
+   "median": 1.5145,
+   "shrunk": 0.4306
+  },
+  "Liquid Restaking": {
+   "n": 2,
+   "median": 0.1828,
+   "shrunk": 0.2049
+  },
+  "AI Agents": {
+   "n": 2,
+   "median": 0.6047,
+   "shrunk": 0.3255
+  },
+  "Staking Pool": {
+   "n": 2,
+   "median": 0.0018,
+   "shrunk": 0.1532
+  },
+  "Launchpad": {
+   "n": 1,
+   "median": 0.1306,
+   "shrunk": 0.1999
+  },
+  "Privacy": {
+   "n": 3,
+   "median": 0.9691,
+   "shrunk": 0.4971
+  },
+  "Prediction Market": {
+   "n": 1,
+   "median": 400.2045,
+   "shrunk": 66.8789
+  },
+  "Payments": {
+   "n": 2,
+   "median": 0.1813,
+   "shrunk": 0.2045
+  },
+  "DOR": {
+   "n": 1,
+   "median": 0.0898,
+   "shrunk": 0.1931
+  },
+  "Leveraged Farming": {
+   "n": 1,
+   "median": 0.1725,
+   "shrunk": 0.2069
+  }
+ },
+ "shrinkage_k": 5,
+ "validation": {
+  "split_half_median_ape_category": 0.954,
+  "split_half_median_ape_global": 0.936,
+  "walk_forward_median_ape_category": 0.989,
+  "walk_forward_median_ape_global": 0.882,
+  "loo_median_ape_category": 0.885,
+  "loo_median_ape_global": 0.856,
+  "conformal_global_range": [
+   0.04,
+   10.367
+  ]
+ },
+ "category_ranges": {
+  "Lending": [
+   0.046,
+   25.889
+  ],
+  "Dexs": [
+   0.055,
+   8.006
+  ]
+ },
+ "ratio_quantiles_global": {
+  "q10": 0.0134,
+  "q25": 0.0477,
+  "q50": 0.2227,
+  "q75": 1.0566,
+  "q90": 2.9747
+ },
+ "ratio_iqr_by_category": {
+  "Lending": [
+   0.0334,
+   1.0268
+  ],
+  "Liquid Staking": [
+   0.0324,
+   0.1857
+  ],
+  "Dexs": [
+   0.0682,
+   1.7535
+  ],
+  "Yield": [
+   0.1206,
+   0.9995
+  ],
+  "Canonical Bridge": [
+   0.352,
+   1.4341
+  ],
+  "CEX": [
+   0.0336,
+   0.1818
+  ],
+  "RWA": [
+   0.1399,
+   0.4145
+  ]
+ },
+ "loglog_exponent_full": 0.5223,
+ "loglog_split_half_median_ape": 0.852,
+ "odds_global_by_age": {
+  "90": 0.156,
+  "270": 0.087,
+  "545": 0.302,
+  "910": 0.626,
+  "1460": 0.083
+ },
+ "odds_global_smoothed": {
+  "90": 0.126,
+  "180": 0.113,
+  "270": 0.131,
+  "365": 0.199,
+  "545": 0.344,
+  "730": 0.483,
+  "910": 0.507,
+  "1095": 0.361,
+  "1460": 0.229,
+  "1825": 0.083
+ },
+ "odds_by_category_age": {
+  "Risk Curators": {
+   "90": 0.025,
+   "270": 0.0
+  },
+  "Lending": {
+   "90": 0.0,
+   "270": 0.286,
+   "545": 0.558,
+   "910": 0.0,
+   "1460": 0.95
+  },
+  "Basis Trading": {
+   "270": 0.0
+  },
+  "Onchain Capital Allocator": {
+   "270": 0.286,
+   "545": 0.464
+  },
+  "Dexs": {
+   "90": 0.417,
+   "270": 0.333,
+   "545": 0.0,
+   "910": 0.273,
+   "1460": 0.0
+  },
+  "Yield": {
+   "90": 0.045,
+   "270": 0.0
+  },
+  "RWA": {
+   "90": 0.611,
+   "270": 0.0,
+   "545": 0.0
+  },
+  "Liquid Staking": {
+   "90": 0.057,
+   "270": 0.143,
+   "545": 0.293,
+   "910": 0.55,
+   "1460": 0.278
+  },
+  "Bridge": {
+   "90": 0.417,
+   "270": 0.0,
+   "545": 0.136
+  }
+ },
+ "odds_by_category_smoothed": {
+  "Risk Curators": {
+   "90": 0.076,
+   "180": 0.076,
+   "270": 0.066
+  },
+  "Lending": {
+   "90": 0.044,
+   "180": 0.039,
+   "270": 0.232,
+   "365": 0.265,
+   "545": 0.484,
+   "730": 0.6,
+   "910": 0.176,
+   "1460": 0.6
+  },
+  "Basis Trading": {
+   "180": 0.189,
+   "270": 0.086,
+   "365": 0.13
+  },
+  "Onchain Capital Allocator": {
+   "180": 0.082,
+   "270": 0.196,
+   "365": 0.263,
+   "545": 0.395
+  },
+  "Dexs": {
+   "90": 0.333,
+   "180": 0.45,
+   "270": 0.275,
+   "365": 0.493,
+   "545": 0.099,
+   "730": 0.281,
+   "910": 0.34,
+   "1095": 0.104,
+   "1460": 0.066
+  },
+  "Yield": {
+   "90": 0.086,
+   "180": 0.057,
+   "270": 0.066,
+   "365": 0.265
+  },
+  "RWA": {
+   "90": 0.345,
+   "180": 0.206,
+   "270": 0.072,
+   "365": 0.147,
+   "545": 0.188,
+   "730": 0.536
+  },
+  "Liquid Staking": {
+   "90": 0.08,
+   "180": 0.05,
+   "270": 0.139,
+   "365": 0.244,
+   "545": 0.31,
+   "730": 0.352,
+   "910": 0.535,
+   "1095": 0.435,
+   "1460": 0.261
+  },
+  "Bridge": {
+   "90": 0.294,
+   "180": 0.192,
+   "270": 0.055,
+   "365": 0.084,
+   "545": 0.223,
+   "730": 0.528
+  }
+ },
+ "fresh_walk_forward": {
+  "matched": 294,
+  "launched": [
+   "doppler-finance",
+   "infinifi"
+  ],
+  "launched_radar2_ranks": {
+   "doppler-finance": 28,
+   "infinifi": 33
+  },
+  "median_tvl_change": -0.08317092781758134,
+  "top20_median_tvl_change": -0.10373531189190394,
+  "rest_median_tvl_change": -0.08181337665598326
+ }
+}

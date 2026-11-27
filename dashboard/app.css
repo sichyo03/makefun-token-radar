@@ -126,3 +126,11 @@ tbody tr[data-selected="true"] { background: var(--accent-soft); }
   .field input { min-width: 0; width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: 0.01ms !important; } }
+
+/* radar-3 additions: integrity strip and verdict badges */
+.strip{display:flex;flex-wrap:wrap;gap:8px 18px;padding:10px 14px;margin:0 0 14px;border:1px solid var(--line,#d8dee6);border-radius:10px;background:var(--panel,#f6f8fb);font-size:12.5px;line-height:1.45}
+.strip span{white-space:normal}
+.badge.verdict-farm{background:#0d7a3f;color:#fff;border-color:#0d7a3f}
+.badge.verdict-watch{background:#b7791f;color:#fff;border-color:#b7791f}
+.badge.verdict-skip{background:transparent;color:var(--muted,#667085)}
+.implied .sub{display:block;font-size:11px;color:var(--muted,#667085)}
